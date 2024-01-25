@@ -1,0 +1,5 @@
+LoadNumber, #num1, 69
+LoadNumber, #num2, 420
+LoadNumber, #num3, 1337
+LoadString, #str1, console.log
+CallDirectObject

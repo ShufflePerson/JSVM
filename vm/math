@@ -1,0 +1,16 @@
+LoadNumber, #num1, 5
+Dec, #num1
+Dec, #num1
+Dec, #num1
+
+LoadNumber, #num2, 5
+Inc, #num2
+Inc, #num2
+Inc, #num2
+
+LoadNumber, #num3, 10
+Add, #num3, 20
+Sub, #num3, 15
+
+LoadString, #str1, console.log
+CallDirectObject

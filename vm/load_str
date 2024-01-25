@@ -1,0 +1,5 @@
+Clean
+LoadString, #str1, console.log
+LoadString, #str2, Hello World!
+LoadString, #str3, I am a str3
+CallDirectObject

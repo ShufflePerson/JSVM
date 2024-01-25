@@ -1,0 +1,8 @@
+$somethingNum, 1337
+$logPropetyPathStr, console.debug
+$somethingStr, Hello World. I am a very long variable with a lot of text haha hello
+
+LoadString, #str1, $logPropetyPathStr
+LoadString, #str2, $somethingStr
+LoadNumber, #num1, $somethingNum
+CallDirectObject
