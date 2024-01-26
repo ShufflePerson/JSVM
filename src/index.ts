@@ -9,9 +9,8 @@ console.log()
 
 import CPU from "./Cpu";
 import Parser from "./Parser";
-import fs from "fs";
 
-let parser = new Parser("", "./vm/hash");
+let parser = new Parser("", "./vm/cond_jumps");
 parser.parse();
 parser.dumpToFile("./bytecode.txt")
 

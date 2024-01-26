@@ -1,1 +1,1 @@
-TODO: Find labels before compiling
+TODO: Encrypt all registers and data on parse, decrypt on access

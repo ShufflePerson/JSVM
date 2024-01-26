@@ -6,6 +6,7 @@ import { TLabels } from "./Types/Parser/TLabels";
 import { TVariables } from "./Types/Parser/TVariables";
 import ICursors from "./Types/Parser/ICursors";
 import { closestMatch } from "closest-match";
+import { EMPTY_NUMBER } from "./Cpu";
 
 
 const MAX_MEMORY_SIZE = 1024;
@@ -16,6 +17,7 @@ const STRING_TERMINATOR: number = 0x00;
 
 class Parser {
     private bytecode: Uint32Array;
+    private OrgBytecode: Uint32Array;
     private variables: TVariables;
     private labels: TLabels;
     private cursors: ICursors;
@@ -23,9 +25,9 @@ class Parser {
     private abort: boolean;
     private debugStack: string[];
 
-    constructor(private input: string, inputFile: string = "") {
+    constructor(private input: string, inputFile: string = "", private parseLabels: boolean = true) {
         this.bytecode = new Uint32Array(MAX_MEMORY_SIZE);
-        this.variables = {};
+
         this.labels = {};
         this.currentLine = 0;
         this.abort = false;
@@ -36,7 +38,12 @@ class Parser {
             data: DATA_SECTION + 1
         }
         this.writeHeader();
-
+        this.variables = {
+            "$EmptyNumber": {
+                value: this.addNumberToData(EMPTY_NUMBER),
+                type: "number"
+            }
+        };
 
         if (inputFile != "") {
             if (!fs.existsSync(inputFile)) {
@@ -48,6 +55,10 @@ class Parser {
             console.error("No input was provided.");
         }
 
+    }
+
+    private resetBytecode() {
+        this.bytecode = new Uint32Array(MAX_MEMORY_SIZE);
     }
 
     private writeHeader() {
@@ -79,6 +90,7 @@ class Parser {
 
             //Ignore label instructions
             if (instructionStr[0] == "!") {
+                this.handle_Label(parts);
                 continue;
             }
 
@@ -93,15 +105,34 @@ class Parser {
                 case "Dec"                  :          this.handle_Dec                      (args);   break;
                 case "Add"                  :          this.handle_Add                      (args);   break;
                 case "Sub"                  :          this.handle_Sub                      (args);   break;
-                case "JMP"                  :          this.handle_JMP                      (args);   break;
+                case "Jmp"                  :          this.handle_Jmp                      (args);   break;
+                case "JmpIfEqual"           :          this.handle_JmpIfEqual               (args);   break;
+                case "JmpIfNotEqual"        :          this.handle_JmpIfNotEqual            (args);   break;
+                case "ClearRegister"        :          this.handle_ClearRegister            (args);   break;
+
                 default:
                     this.crash(`No such instruction: "${instructionStr}"`, `Did you mean ${closestMatch(instructionStr, AllIntructions)}`)
                     break;
             }
             this.currentLine++;
         }
-    }
 
+        if (this.parseLabels) {
+            console.log("Labels parsed, running the main parse now.");
+            this.resetBytecode();
+            this.currentLine = 0;
+            this.abort = false;
+            this.debugStack = [];
+            this.cursors = {
+                code: START_OF_CODE,
+                header: 0,
+                data: DATA_SECTION + 1
+            }
+            this.writeHeader();
+            this.parseLabels = false;
+            this.parse();
+        }
+    }
     public getByteCode(): Uint32Array {
         return this.bytecode;
     }
@@ -139,6 +170,27 @@ class Parser {
 
         this.abort = true;
         process.exit(-1);
+    }
+
+    private getLabelAddress(parts: string[]): number {
+        this.ensureArguments(parts, ["label"]);
+        const [labelName] = parts;
+        const label = this.labels[labelName.substring(1)];
+
+        if (!label && !this.parseLabels) {
+            let possibleMatch = closestMatch(labelName, Object.keys(this.labels));
+            this.crash("Failed to find a label with the name of: " + labelName, possibleMatch ? `Did you mean ${possibleMatch}` : "");
+        }
+
+        if (label) {
+            return label.address;
+        }
+
+        if (!label && this.parseLabels) {
+            return 0xFFFFFFFF;
+        }
+
+        return 0xFFFFFFFF; 
     }
 
     private ensureArguments(items: string[], args: string[]) {
@@ -344,18 +396,45 @@ class Parser {
     }
 
 
-    //todo: fix
-    private handle_JMP(parts: string[]) {
-        this.ensureArguments(parts, ["labelName"]);
-        const [labelName] = parts;
-        const label = this.labels[labelName.substring(1)];
+    private handle_Jmp(parts: string[]) {
+        this.bytecode[this.moveToNextCodeByte()] = TInstructions.Jmp;
+        this.bytecode[this.moveToNextCodeByte()] = this.getLabelAddress(parts);
 
-        if (!label) {
-            this.crash("Failed to find a label with the name of: " + labelName);
-        }
+    }
 
-        this.bytecode[this.moveToNextCodeByte()] = TInstructions.JMP;
-        this.bytecode[this.moveToNextCodeByte()] = label.address;
+    private handle_JmpIfEqual(parts: string[]) {
+        this.ensureArguments(parts, ["label", "register", "register"]);
+        const [label, register1Name, register2Name] = parts;
+        const labelAddress = this.getLabelAddress(parts);
+        const register1 = this.ensureRegisterOrFail(register1Name)
+        const register2 = this.ensureRegisterOrFail(register2Name)
+
+        this.bytecode[this.moveToNextCodeByte()] = TInstructions.JmpIfEqual;
+        this.bytecode[this.moveToNextCodeByte()] = labelAddress;
+        this.bytecode[this.moveToNextCodeByte()] = register1;
+        this.bytecode[this.moveToNextCodeByte()] = register2;
+    }
+
+    private handle_JmpIfNotEqual(parts: string[]) {
+        this.ensureArguments(parts, ["label", "register", "register"]);
+        const [label, register1Name, register2Name] = parts;
+        const labelAddress = this.getLabelAddress(parts);
+        const register1 = this.ensureRegisterOrFail(register1Name)
+        const register2 = this.ensureRegisterOrFail(register2Name)
+
+        this.bytecode[this.moveToNextCodeByte()] = TInstructions.JmpIfNotEqual;
+        this.bytecode[this.moveToNextCodeByte()] = labelAddress;
+        this.bytecode[this.moveToNextCodeByte()] = register1;
+        this.bytecode[this.moveToNextCodeByte()] = register2;
+    }
+
+    private handle_ClearRegister(parts: string[]) {
+        this.ensureArguments(parts, ["register"]);
+        const [registerName] = parts;
+        const register = this.ensureRegisterOrFail(registerName);
+
+        this.bytecode[this.moveToNextCodeByte()] = TInstructions.ClearRegister;
+        this.bytecode[this.moveToNextCodeByte()] = register;
     }
 }
 

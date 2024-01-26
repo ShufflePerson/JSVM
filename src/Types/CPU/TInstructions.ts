@@ -8,7 +8,10 @@ enum TInstructions {
     Dec,
     Add,
     Sub,
-    JMP
+    Jmp,
+    JmpIfEqual,
+    JmpIfNotEqual,
+    ClearRegister
 }
 
 const AllIntructions: string[] = ((myEnum: any): string[] => Object.keys(myEnum).filter(k => typeof myEnum[k] === 'number'))(TInstructions);

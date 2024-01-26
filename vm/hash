@@ -1,9 +1,0 @@
-LoadNumber, #num1, 32
-LoadNumber, #num1, 6546
-LoadNumber, #num2, 43432
-Clean
-LoadNumber, #num1, 69
-LoadNumber, #num2, 43
-LoadNumber, #num3, 1337
-LoadString, #str1, console.invalidLog
-CallDirectObject

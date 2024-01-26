@@ -1,0 +1,7 @@
+Clean
+Jmp, !LoadTheStrings
+LoadString, #str3, I will be skipped
+!LoadTheStrings
+LoadString, #str1, console.debug
+LoadString, #str2, I got loaded after the Jmp
+CallDirectObject

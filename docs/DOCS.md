@@ -33,6 +33,16 @@ Cleans all registries
 ### JMP, !Label
 Jumps to a !Label
 
+### JmpIfEqual, !Label, #register1, #register2
+Jumps to `!Label` if `#register1` is equal to `#register2`
+
+
+### JmpIfNotEqual, !Label, #register1, #register2
+Jumps to `!Label` if `#register1` is not equal to `#register2`
+
+### ClearRegister, #Register
+Sets the `#Register` to its default empty value.
+
 ## Registers
 
 ### Strings

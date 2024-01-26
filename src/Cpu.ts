@@ -2,9 +2,9 @@ import TInstructions, { AllIntructions } from "./Types/CPU/TInstructions";
 import TRegisters from "./Types/CPU/TRegisters";
 
 
-const EMPTY_NUMBER: number  = 0xFAFAFAFA;
+export const EMPTY_NUMBER: number  = 0xFAFAFAFA;
 const MAX_CYCLES_TIMEOUT: number = 10000;
-const EMPTY_STRING: string = String.fromCharCode(0x01);
+export const EMPTY_STRING: string = String.fromCharCode(0x01);
 
 class CPU {
     private cursor: number;
@@ -49,7 +49,11 @@ class CPU {
                 case TInstructions.Inc:                 this.handle_Inc();                  break;
                 case TInstructions.Sub:                 this.handle_Sub();                  break;
                 case TInstructions.Add:                 this.handle_Add();                  break;
-                case TInstructions.JMP:                 this.handle_JMP();                  break;
+                case TInstructions.Jmp:                 this.handle_Jmp();                  break;
+                case TInstructions.JmpIfEqual:          this.handle_JmpIfEqual();           break;
+                case TInstructions.JmpIfNotEqual:       this.handle_JmpIfNotEqual();        break;
+                case TInstructions.ClearRegister:       this.handle_ClearRegister();        break;
+
                 case 0: break;
                 default:
                     this.halt = true;
@@ -65,6 +69,14 @@ class CPU {
             if (byteCode == byte) return instruction;
         }
         return "";
+    }
+
+    public getRegister(register: TRegisters) {
+        return this.registers[register];
+    }
+
+    public setRegister(register: TRegisters, data: any) {
+        this.registers[register] = data;
     }
 
     private lookupString(address: number): string {
@@ -141,6 +153,10 @@ class CPU {
 
     private handle_CallDirectObject() {
         this.debugStack.push(`CallDirectObject`);
+        if (this.registers[TRegisters.str1] == EMPTY_STRING) {
+            return this.crash("The #str1 register is empty.");
+        }
+
         let propetyPath = this.registers[TRegisters.str1].split(".");
         let obj: any = global;
         for (const propety of propetyPath) {
@@ -199,11 +215,50 @@ class CPU {
         this.registers[register]++;
     }
     
-    private handle_JMP() {
+    private handle_Jmp() {
         const address: number = this.bytecode[this.moveToNextCodeByte()];
         this.debugStack.push(`JMP, ${address}`);
-
         this.cursor = address;
+    }
+
+    private handle_JmpIfEqual() {
+        const address: number = this.bytecode[this.moveToNextCodeByte()];
+        const register1: number = this.bytecode[this.moveToNextCodeByte()];
+        const register2: number = this.bytecode[this.moveToNextCodeByte()];
+        
+        if (this.getRegister(register1) === this.getRegister(register2)) 
+            this.cursor = address;
+    }
+
+    private handle_JmpIfNotEqual() {
+        const address: number = this.bytecode[this.moveToNextCodeByte()];
+        const register1: number = this.bytecode[this.moveToNextCodeByte()];
+        const register2: number = this.bytecode[this.moveToNextCodeByte()];
+        
+        if (this.getRegister(register1) !== this.getRegister(register2)) 
+            this.cursor = address;
+    }
+
+    private handle_ClearRegister() {
+        const register: TRegisters = this.bytecode[this.moveToNextCodeByte()];
+
+        switch (register) {
+            case TRegisters.num1:
+            case TRegisters.num2:
+            case TRegisters.num3:
+            case TRegisters.num4:
+                this.setRegister(register, EMPTY_NUMBER);
+                break;
+            case TRegisters.str1:
+            case TRegisters.str2:
+            case TRegisters.str3:
+            case TRegisters.str4:
+                this.setRegister(register, EMPTY_STRING);
+                break;
+            default:
+                this.crash(`The register by the opcode of ${register} is not a valid register.`);
+                break;
+        }
     }
 
 }

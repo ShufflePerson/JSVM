@@ -1,0 +1,10 @@
+LoadNumber, #num1, 0
+LoadNumber, #num2, 10
+LoadString, #str1, console.debug
+LoadString, #str2, The index of this loop is %s
+!Loop
+Inc, #num1
+ClearRegister, #num2
+CallDirectObject
+LoadNumber, #num2, 10
+JmpIfNotEqual, !Loop, #num1, #num2
