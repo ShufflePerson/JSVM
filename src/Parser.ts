@@ -9,25 +9,33 @@ import { closestMatch } from "closest-match";
 import { EMPTY_NUMBER } from "./Cpu";
 
 
-const MAX_MEMORY_SIZE = 1024;
+//TODO: Moves these to the inside of the class
+const MAX_MEMORY_SIZE = 99999;
 const START_OF_CODE = 10;
-const DATA_SECTION = 500;
-const STRING_TERMINATOR: number = 0x00;
+const DATA_SECTION = START_OF_CODE + 256;
+const STRING_TERMINATOR: number = 0xF1F2F3F4;
+const SECRET_IV_KEY = "9e1c2dc84cd00ae49e1c2dc84cd00ae4";
 
+function convertUInt32ToKey(uint32: number) {
+    const keyBuffer = Buffer.alloc(32);
+    keyBuffer.writeUInt32LE(uint32, 0);
+    keyBuffer.copy(keyBuffer, 4, 0, 28); // Duplicate the input key for the rest
+    return keyBuffer;
+  }
 
 class Parser {
     private bytecode: Uint32Array;
-    private OrgBytecode: Uint32Array;
     private variables: TVariables;
     private labels: TLabels;
     private cursors: ICursors;
     private currentLine: number;
     private abort: boolean;
     private debugStack: string[];
+    private encryptionKey: number;
 
     constructor(private input: string, inputFile: string = "", private parseLabels: boolean = true) {
         this.bytecode = new Uint32Array(MAX_MEMORY_SIZE);
-
+        this.encryptionKey = Math.floor(Math.random() * 2**32);
         this.labels = {};
         this.currentLine = 0;
         this.abort = false;
@@ -45,6 +53,7 @@ class Parser {
             }
         };
 
+
         if (inputFile != "") {
             if (!fs.existsSync(inputFile)) {
                 console.error("Input file was not found.");
@@ -57,6 +66,13 @@ class Parser {
 
     }
 
+    private encryptData(data: string | number): string {
+        const cipher = crypto.createCipheriv('aes-256-ctr', Buffer.from(convertUInt32ToKey(this.encryptionKey)), Buffer.from(SECRET_IV_KEY, "hex"));
+        let encrypted = cipher.update(data.toString(), 'utf-8', "hex");
+        encrypted += cipher.final('hex');
+        return encrypted;
+    }
+
     private resetBytecode() {
         this.bytecode = new Uint32Array(MAX_MEMORY_SIZE);
     }
@@ -66,6 +82,8 @@ class Parser {
         this.bytecode[this.cursors.header++] = START_OF_CODE;
         this.bytecode[this.cursors.header++] = DATA_SECTION;
         this.bytecode[this.cursors.header++] = STRING_TERMINATOR;
+        this.bytecode[this.cursors.header++] = this.encryptionKey;
+
     }
 
     public parse() {
@@ -109,6 +127,8 @@ class Parser {
                 case "JmpIfEqual"           :          this.handle_JmpIfEqual               (args);   break;
                 case "JmpIfNotEqual"        :          this.handle_JmpIfNotEqual            (args);   break;
                 case "ClearRegister"        :          this.handle_ClearRegister            (args);   break;
+                case "Mul"                  :          this.handle_Mul                      (args);   break;
+                case "Div"                  :          this.handle_Div                      (args);   break;
 
                 default:
                     this.crash(`No such instruction: "${instructionStr}"`, `Did you mean ${closestMatch(instructionStr, AllIntructions)}`)
@@ -132,6 +152,7 @@ class Parser {
             this.parseLabels = false;
             this.parse();
         }
+        this.bytecode = this.bytecode.slice(0, this.cursors.data + 8)
     }
     public getByteCode(): Uint32Array {
         return this.bytecode;
@@ -145,9 +166,13 @@ class Parser {
 
     private addStringToData(str: string): number {
         let startAddress = this.cursors.data;
-        for (let i = 0; i < str.length; i++) {
-            this.bytecode[this.cursors.data++] = str[i].codePointAt(0) || 0;
+        let encryptedData = this.encryptData(str);
+
+        for (let i = 0; i < encryptedData.length; i++) {
+            this.bytecode[(startAddress) + i] = encryptedData[i].charCodeAt(0);
+            this.cursors.data++;
         }
+
 
         this.bytecode[this.cursors.data++] = STRING_TERMINATOR;
 
@@ -435,6 +460,30 @@ class Parser {
 
         this.bytecode[this.moveToNextCodeByte()] = TInstructions.ClearRegister;
         this.bytecode[this.moveToNextCodeByte()] = register;
+    }
+
+    private handle_Mul(parts: string[]) {
+        this.ensureArguments(parts, ["register", "amount"]);
+        const [registerName, amount] = parts;
+        if (!this.isNumber(amount)) return this.crash("Amount must be a number.")
+
+        const register = this.ensureRegisterOrFail(registerName);
+
+        this.bytecode[this.moveToNextCodeByte()] = TInstructions.Mul;
+        this.bytecode[this.moveToNextCodeByte()] = register;
+        this.bytecode[this.moveToNextCodeByte()] = Number.parseInt(amount);
+    }
+
+    private handle_Div(parts: string[]) {
+        this.ensureArguments(parts, ["register", "amount"]);
+        const [registerName, amount] = parts;
+        if (!this.isNumber(amount)) return this.crash("Amount must be a number.")
+        
+        const register = this.ensureRegisterOrFail(registerName);
+
+        this.bytecode[this.moveToNextCodeByte()] = TInstructions.Div;
+        this.bytecode[this.moveToNextCodeByte()] = register;
+        this.bytecode[this.moveToNextCodeByte()] = Number.parseInt(amount);
     }
 }
 

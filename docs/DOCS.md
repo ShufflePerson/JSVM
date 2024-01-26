@@ -43,6 +43,12 @@ Jumps to `!Label` if `#register1` is not equal to `#register2`
 ### ClearRegister, #Register
 Sets the `#Register` to its default empty value.
 
+### Mul, #numRegister, amount
+Multiplies `#numRegister` by `amount`
+
+### Div, #numRegister, amount
+Divides `#numRegister` by `amount`
+
 ## Registers
 
 ### Strings

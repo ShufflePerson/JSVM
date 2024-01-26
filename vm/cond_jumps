@@ -8,6 +8,5 @@ LoadString, #str2, The index of this loop is %s
 ClearRegister, #num2
 CallDirectObject
 LoadNumber, #num2, 10
-
 Inc, #num1
 JmpIfNotEqual, !Loop, #num1, #num2

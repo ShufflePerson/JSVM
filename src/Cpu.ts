@@ -1,10 +1,19 @@
 import TInstructions, { AllIntructions } from "./Types/CPU/TInstructions";
 import TRegisters from "./Types/CPU/TRegisters";
+import crypto from "crypto";
 
+
+function convertUInt32ToKey(uint32: number) {
+    const keyBuffer = Buffer.alloc(32);
+    keyBuffer.writeUInt32LE(uint32, 0);
+    keyBuffer.copy(keyBuffer, 4, 0, 28); 
+    return keyBuffer;
+}
 
 export const EMPTY_NUMBER: number  = 0xFAFAFAFA;
 const MAX_CYCLES_TIMEOUT: number = 10000;
 export const EMPTY_STRING: string = String.fromCharCode(0x01);
+const SECRET_IV_KEY = "9e1c2dc84cd00ae49e1c2dc84cd00ae4";
 
 class CPU {
     private cursor: number;
@@ -16,6 +25,7 @@ class CPU {
     private DATA_SECTION: number;
     private STRING_TERMINATOR: number;
     private debugStack: string[];
+    private decryptKey: number;
 
 
     constructor(public bytecode: Uint32Array, private logAll: boolean = true) {
@@ -24,6 +34,7 @@ class CPU {
         this.START_OF_CODE = this.bytecode[1];
         this.DATA_SECTION = this.bytecode[2];
         this.STRING_TERMINATOR = this.bytecode[3];
+        this.decryptKey = this.bytecode[4];
         this.cursor = this.START_OF_CODE;
         this.totalCycles = 0;
         this.debugStack = [];
@@ -33,7 +44,7 @@ class CPU {
     }
 
     public fetchDecodeExecute() {
-        while (!this.halt && this.cursor <= this.DATA_SECTION) {
+        while (!this.halt && this.cursor < this.DATA_SECTION) {
             if (this.totalCycles++ >= MAX_CYCLES_TIMEOUT) {
                 this.crash("Possible infinity loop detected, exiting.");
                 break;
@@ -53,6 +64,8 @@ class CPU {
                 case TInstructions.JmpIfEqual:          this.handle_JmpIfEqual();           break;
                 case TInstructions.JmpIfNotEqual:       this.handle_JmpIfNotEqual();        break;
                 case TInstructions.ClearRegister:       this.handle_ClearRegister();        break;
+                case TInstructions.Mul:                 this.handle_Mul();                  break;
+                case TInstructions.Div:                 this.handle_Div();                  break;
 
                 case 0: break;
                 default:
@@ -62,6 +75,24 @@ class CPU {
             }
         }
     }
+
+    private decryptData(encryptedData: string): string {
+        const decipher = crypto.createDecipheriv('aes-256-ctr', Buffer.from(convertUInt32ToKey(this.decryptKey)), Buffer.from(SECRET_IV_KEY, "hex"));
+        let decrypted = decipher.update(encryptedData, 'hex', 'utf-8');
+        decrypted += decipher.final('utf-8');
+        return decrypted;
+    }
+
+    private lookupString(address: number): string {
+        let builtString = "";
+        for (let i = address; i < this.MAX_MEMORY_SIZE; i++) {
+            if (this.bytecode[i] == this.STRING_TERMINATOR) break;
+            builtString += String.fromCharCode(this.bytecode[i]);
+        }
+
+        return this.decryptData(builtString);
+    }
+    
 
     private byteToInstruction(byte: number): string {
         for (const instruction of AllIntructions) {
@@ -79,15 +110,7 @@ class CPU {
         this.registers[register] = data;
     }
 
-    private lookupString(address: number): string {
-        let builtString = "";
-        for (let i = address; i < this.MAX_MEMORY_SIZE; i++) {
-            if (this.bytecode[i] == this.STRING_TERMINATOR) break;
-            builtString += String.fromCharCode(this.bytecode[i]);
-        }
 
-        return builtString;
-    }
 
     private crash(message: string, suggestion: string = "") {
         console.error("================CPU CRASH================");
@@ -108,7 +131,10 @@ class CPU {
     
 
     private moveToNextCodeByte(): number {
-        return this.cursor++;
+        if (this.cursor < this.DATA_SECTION)
+            return this.cursor++;
+        this.crash("Code region ends.");
+        return 0;
     }
 
     private log(...data: any) {
@@ -134,7 +160,6 @@ class CPU {
         const register      = this.bytecode[this.moveToNextCodeByte()];
         const strAddress    = this.bytecode[this.moveToNextCodeByte()];
         this.debugStack.push(`LoadString, ${register}, ${strAddress} ( "${this.lookupString(strAddress)}" )`);
-        
         this.registers[register] = this.lookupString(strAddress);
     }
 
@@ -259,6 +284,22 @@ class CPU {
                 this.crash(`The register by the opcode of ${register} is not a valid register.`);
                 break;
         }
+    }
+
+    private handle_Mul() {
+        const register    = this.bytecode[this.moveToNextCodeByte()];
+        const amount      = this.bytecode[this.moveToNextCodeByte()];
+        this.debugStack.push(`Mul, ${this.getRegister(register)}, ${amount}`);
+
+        this.setRegister(register, this.getRegister(register) * amount);
+    }
+
+    private handle_Div() {
+        const register    = this.bytecode[this.moveToNextCodeByte()];
+        const amount      = this.bytecode[this.moveToNextCodeByte()];
+        this.debugStack.push(`Div, ${this.getRegister(register)}, ${amount}`);
+
+        this.setRegister(register, this.getRegister(register) / amount);
     }
 
 }

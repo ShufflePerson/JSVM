@@ -12,5 +12,9 @@ LoadNumber, #num3, 10
 Add, #num3, 20
 Sub, #num3, 15
 
+LoadNumber, #num4, 10
+Mul, #num4, 20
+Div, #num4, 40
+
 LoadString, #str1, console.log
 CallDirectObject

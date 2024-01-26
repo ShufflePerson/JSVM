@@ -33,7 +33,7 @@ let simple_jump_parse = createParseDump("simple_jump");
 let cond_jumps_parse = createParseDump("cond_jumps");
 
 
-console.log("       =========VM OUTPUTS=========")
+console.log("\n       =========VM OUTPUTS=========\n")
 let strCPU          = new CPU(load_str_parse.getByteCode(), false);
 let numCPU          = new CPU(load_num_parse.getByteCode(), false);
 let variablesCPU    = new CPU(variables_parse.getByteCode(), false);
@@ -41,7 +41,7 @@ let mathCPU         = new CPU(math_parse.getByteCode(), false);
 let simpleJumpCPU   = new CPU(simple_jump_parse.getByteCode(), false);
 let condJumpsCPU    = new CPU(cond_jumps_parse.getByteCode(), false);
 
-console.log("       =========VM OUTPUTS=========")
+console.log("\n       =========VM OUTPUTS=========\n")
 
 
 
@@ -57,6 +57,8 @@ checkRegister(numCPU, "numCPU", "num3", TRegisters.num3, 1337);
 checkRegister(mathCPU, "mathCPU", "num1", TRegisters.num1, 2);
 checkRegister(mathCPU, "mathCPU", "num2", TRegisters.num2, 8);
 checkRegister(mathCPU, "mathCPU", "num3", TRegisters.num3, 15);
+checkRegister(mathCPU, "mathCPU", "num4", TRegisters.num4, 5);
+
 
 checkRegister(variablesCPU, "variablesCPU", "num1", TRegisters.num1, 1337);
 checkRegister(variablesCPU, "variablesCPU", "str1", TRegisters.str1, "console.debug");
