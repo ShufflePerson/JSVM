@@ -9,12 +9,15 @@
 
 # Docs
 One Byte = 32 Bits 
+
 Unsigned values only.
 
 ## Instructions
 
 Immediate - Value is provided directly upfront
+
 Absolute  - A Address to the Value is provided 
+
 Indirect  - A address to a address is provided for the value (Used for Variables by the Compiler)
 
 ### LoadString, #strRegister, "str"
@@ -65,6 +68,7 @@ Divides `#numRegister` by `amount`
 
 ### CallInternal, #strRegister
 Calls a function in the current scope with the `#strRegister` path. 
+
 Passes in the `#param` as parameters.
 
 ### ClearParam
@@ -84,14 +88,20 @@ Logs out all registers to the console
 
 ### Strings
 str1
+
 str2
+
 str3
+
 str4
 
 ### Numbers
 num1
+
 num2
+
 num3
+
 num4                    
 
 ### Parameters
