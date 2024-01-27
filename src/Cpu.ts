@@ -118,15 +118,6 @@ class CPU {
         return this.decryptData(builtString);
     }
     
-
-    private byteToInstruction(byte: number): string {
-        for (const instruction of AllIntructions) {
-            let byteCode = ((TInstructions as any)[instruction])
-            if (byteCode == byte) return instruction;
-        }
-        return "";
-    }
-
     public getRegister(register: TRegisters) {
         return this.registers[register];
     }
