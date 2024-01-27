@@ -1,5 +1,5 @@
 enum TInstructions {
-    PADDING_DO_NOT_USE,
+    PADDING_DO_NOT_USE = 0x38, //DO NOT TOUCH. This line has been patched by randomizer.js
     LoadString,         //3 Bytes
     CallDirectObject,   //1 Byte
     Clean,              //1 Byte

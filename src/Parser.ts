@@ -6,6 +6,7 @@ import { TLabels } from "./Types/Parser/TLabels";
 import { TVariables } from "./Types/Parser/TVariables";
 import ICursors from "./Types/Parser/ICursors";
 import { closestMatch } from "closest-match";
+import THeader from "./Types/CPU/THeader";
 
 
 //TODO: Moves these to the inside of the class
@@ -13,7 +14,7 @@ const MAX_MEMORY_SIZE = 99999;
 const START_OF_CODE = 8;
 const DATA_SECTION = START_OF_CODE + 256;
 const STRING_TERMINATOR: number = 0xF1F2F3F4;
-const SECRET_IV_KEY = "9e1c2dc84cd00ae49e1c2dc84cd00ae4";
+const SECRET_IV_KEY = "d62a75f1fce09c8ba9d654cd0293d1a1"; //DO NOT TOUCH. This line has been patched by randomizer.js
 export const EMPTY_NUMBER: number  = 0xFAFAFAFA;
 export const EMPTY_STRING: string = String.fromCharCode(0x01);
 
@@ -80,14 +81,14 @@ class Parser {
     }
 
     private writeHeader() {
-        this.bytecode[this.cursors.header++] = MAX_MEMORY_SIZE;
-        this.bytecode[this.cursors.header++] = START_OF_CODE;
-        this.bytecode[this.cursors.header++] = DATA_SECTION;
-        this.bytecode[this.cursors.header++] = STRING_TERMINATOR;
-        this.bytecode[this.cursors.header++] = this.encryptionKey;
-        this.bytecode[this.cursors.header++] = this.isDebug ? 1 : 0;
-        this.bytecode[this.cursors.header++] = EMPTY_NUMBER;
-        this.bytecode[this.cursors.header++] = EMPTY_STRING.charCodeAt(0);
+        this.bytecode[THeader.MAX_MEMORY_SIZE] = MAX_MEMORY_SIZE;
+        this.bytecode[THeader.START_OF_CODE] = START_OF_CODE;
+        this.bytecode[THeader.DATA_SECTION] = DATA_SECTION;
+        this.bytecode[THeader.STRING_TERMINATOR] = STRING_TERMINATOR;
+        this.bytecode[THeader.ENCRYPTION_KEY] = this.encryptionKey;
+        this.bytecode[THeader.IS_DEBUG] = this.isDebug ? 1 : 0;
+        this.bytecode[THeader.EMPTY_NUMBER] = EMPTY_NUMBER;
+        this.bytecode[THeader.EMPTY_STRING] = EMPTY_STRING.charCodeAt(0);
 
     }
 

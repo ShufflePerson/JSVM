@@ -1,3 +1,4 @@
+import THeader from "./Types/CPU/THeader";
 import TInstructions, { AllIntructions } from "./Types/CPU/TInstructions";
 import TRegisters, { AllRegisters } from "./Types/CPU/TRegisters";
 import crypto from "crypto";
@@ -11,7 +12,7 @@ function convertUInt32ToKey(uint32: number) {
 }
 
 const MAX_CYCLES_TIMEOUT: number = 10000;
-const SECRET_IV_KEY = "9e1c2dc84cd00ae49e1c2dc84cd00ae4";
+const SECRET_IV_KEY = "d62a75f1fce09c8ba9d654cd0293d1a1"; //DO NOT TOUCH. This line has been patched by randomizer.js
 
 class CPU {
     private cursor: number;
@@ -31,14 +32,17 @@ class CPU {
 
     constructor(public bytecode: Uint32Array, private logAll: boolean = true) {
         this.halt = false;
-        this.MAX_MEMORY_SIZE = this.bytecode[0];
-        this.START_OF_CODE = this.bytecode[1];
-        this.DATA_SECTION = this.bytecode[2];
-        this.STRING_TERMINATOR = this.bytecode[3];
-        this.decryptKey = this.bytecode[4];
-        this.isDebug = this.bytecode[5] == 1;
-        this.EMPTY_NUMBER = this.bytecode[6];
-        this.EMPTY_STRING = String.fromCharCode(this.bytecode[7]);
+
+        this.MAX_MEMORY_SIZE =                  this.bytecode[THeader.MAX_MEMORY_SIZE];
+        this.START_OF_CODE =                    this.bytecode[THeader.START_OF_CODE];
+        this.DATA_SECTION =                     this.bytecode[THeader.DATA_SECTION];
+        this.STRING_TERMINATOR =                this.bytecode[THeader.STRING_TERMINATOR];
+        this.decryptKey =                       this.bytecode[THeader.ENCRYPTION_KEY];
+        this.isDebug =                          this.bytecode[THeader.IS_DEBUG] == 1;
+        this.EMPTY_NUMBER =                     this.bytecode[THeader.EMPTY_NUMBER];
+        this.EMPTY_STRING = String.fromCharCode(this.bytecode[THeader.EMPTY_STRING]);
+
+
 
 
         this.cursor = this.START_OF_CODE;
@@ -86,6 +90,12 @@ class CPU {
         }
     }
 
+    private addToDebugStack(data: string) {
+        if (this.isDebug) {
+            this.debugStack.push(data);
+        }
+    }
+
     public getEmptyString(): string {
         return this.EMPTY_STRING;
     }
@@ -127,6 +137,7 @@ class CPU {
 
 
     private crash(message: string, suggestion: string = "") {
+        if (!this.isDebug) return;
         console.error("================CPU CRASH================");
         console.log("Last instructions executed: ")
         console.log(this.debugStack.slice(-5, -1).map((message: string, index: number) => {
@@ -173,12 +184,12 @@ class CPU {
     private handle_LoadString() {
         const register      = this.bytecode[this.moveToNextCodeByte()];
         const strAddress    = this.bytecode[this.moveToNextCodeByte()];
-        this.debugStack.push(`LoadString, ${register}, ${strAddress} ( "${this.lookupString(strAddress)}" )`);
+        this.addToDebugStack(`LoadString, ${register}, ${strAddress} ( "${this.lookupString(strAddress)}" )`);
         this.registers[register] = this.lookupString(strAddress);
     }
 
     private handle_Clean() {
-        this.debugStack.push(`Clean`);
+        this.addToDebugStack(`Clean`);
         this.log("[CPU] Registries Cleaned")
         this.registers[TRegisters.str1] = this.EMPTY_STRING;
         this.registers[TRegisters.str2] = this.EMPTY_STRING;
@@ -192,7 +203,7 @@ class CPU {
     }
 
     private handle_CallDirectObject() {
-        this.debugStack.push(`CallDirectObject`);
+        this.addToDebugStack(`CallDirectObject`);
         if (this.registers[TRegisters.str1] == this.EMPTY_STRING) {
             return this.crash("The #str1 register is empty.");
         }
@@ -213,7 +224,7 @@ class CPU {
     private handle_LoadNumber() {
         const register      = this.bytecode[this.moveToNextCodeByte()];
         const number        = this.bytecode[this.moveToNextCodeByte()];
-        this.debugStack.push(`LoadNumber, ${register}, ${number}`);
+        this.addToDebugStack(`LoadNumber, ${register}, ${number}`);
 
         
         this.registers[register] = number;
@@ -223,41 +234,41 @@ class CPU {
         const register      = this.bytecode[this.moveToNextCodeByte()];
         const numberAddress = this.bytecode[this.moveToNextCodeByte()];
         const number        = this.bytecode[numberAddress];
-        this.debugStack.push(`LoadNumberAbs, ${register}, ${numberAddress}`);
+        this.addToDebugStack(`LoadNumberAbs, ${register}, ${numberAddress}`);
         
         this.registers[register] = number;
     }
 
     private handle_Dec() {
         const register      = this.bytecode[this.moveToNextCodeByte()];
-        this.debugStack.push(`Dec, ${register}`);
+        this.addToDebugStack(`Dec, ${register}`);
 
         this.registers[register]--;
     }
     private handle_Add() {
         const register      = this.bytecode[this.moveToNextCodeByte()];
         const amount        = this.bytecode[this.moveToNextCodeByte()];
-        this.debugStack.push(`Add, ${register}, ${amount}`);
+        this.addToDebugStack(`Add, ${register}, ${amount}`);
 
         this.registers[register] += amount;
     }
     private handle_Sub() {
         const register      = this.bytecode[this.moveToNextCodeByte()];
         const amount        = this.bytecode[this.moveToNextCodeByte()];
-        this.debugStack.push(`Sub, ${register}, ${amount}`);
+        this.addToDebugStack(`Sub, ${register}, ${amount}`);
 
         this.registers[register] -= amount;
     }
     private handle_Inc() {
         const register      = this.bytecode[this.moveToNextCodeByte()];
-        this.debugStack.push(`Inc, ${register}`);
+        this.addToDebugStack(`Inc, ${register}`);
 
         this.registers[register]++;
     }
     
     private handle_Jmp() {
         const address: number = this.bytecode[this.moveToNextCodeByte()];
-        this.debugStack.push(`JMP, ${address}`);
+        this.addToDebugStack(`JMP, ${address}`);
         this.cursor = address;
     }
 
@@ -307,7 +318,7 @@ class CPU {
     private handle_Mul() {
         const register    = this.bytecode[this.moveToNextCodeByte()];
         const amount      = this.bytecode[this.moveToNextCodeByte()];
-        this.debugStack.push(`Mul, ${this.getRegister(register)}, ${amount}`);
+        this.addToDebugStack(`Mul, ${this.getRegister(register)}, ${amount}`);
 
         this.setRegister(register, this.getRegister(register) * amount);
     }
@@ -315,7 +326,7 @@ class CPU {
     private handle_Div() {
         const register    = this.bytecode[this.moveToNextCodeByte()];
         const amount      = this.bytecode[this.moveToNextCodeByte()];
-        this.debugStack.push(`Div, ${this.getRegister(register)}, ${amount}`);
+        this.addToDebugStack(`Div, ${this.getRegister(register)}, ${amount}`);
 
         this.setRegister(register, this.getRegister(register) / amount);
     }

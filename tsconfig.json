@@ -8,6 +8,8 @@
         "moduleResolution": "node",
         "sourceMap": true,
         "outDir": "dist",
+        "isolatedModules": true,
+        "removeComments": true,
         "baseUrl": ".",
         "paths": {
             "*": [
