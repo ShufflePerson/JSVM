@@ -5,8 +5,10 @@ LoadString, #str2, The index of this loop is %s
 
 !Loop
 
-ClearRegister, #num2
-CallDirectObject
-LoadNumber, #num2, 10
+ClearParam,
+PushToParam, #str2
+PushToParam, #num1
+CallInternal, #str1
+
 Inc, #num1
 JmpIfNotEqual, !Loop, #num1, #num2
