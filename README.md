@@ -58,7 +58,7 @@ LoadString, #str2, The index of this loop is %s
 !Loop
 
 -- Clear the `#Param` register
-ClearParam,
+ClearParam
 
 -- Push our message template and our `i` onto the `#Param` register
 PushToParam, #str2
