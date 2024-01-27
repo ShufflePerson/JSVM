@@ -1,8 +1,14 @@
 const fs = require("fs");
 const crypto = require("crypto");
 
-//9e1c2dc84cd00ae49e1c2dc84cd00ae4
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+}
 
+  
 const note = "//DO NOT TOUCH. This line has been patched by randomizer.js";
 const CONFIG = {
     IV: crypto.randomBytes(16).toString("hex"),
@@ -49,9 +55,18 @@ function patchInstructions() {
 }
 
 function patchHeader() {
-    const headerPath = ""
+    const headerPath = "./src/Types/CPU/THeader.ts"
+    const content = fs.readFileSync(headerPath, "utf-8");
+    const lines = content.split("\r\n");
+    let enum_values = content.split("{")[1].split("}")[0].split("\r\n").filter((line) => line);
+    shuffleArray(enum_values);
+
+    let output = `${lines[0]}\r\n${enum_values.join("\r\n")}\r\n}\r\n${lines[lines.length - 1]}`;
+    fs.writeFileSync(headerPath, output)
+    
 }
 
+patchHeader();
 patchCPUFile();
 patchParserFile();
 patchInstructions();

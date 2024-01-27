@@ -12,7 +12,7 @@ function convertUInt32ToKey(uint32: number) {
 }
 
 const MAX_CYCLES_TIMEOUT: number = 10000;
-const SECRET_IV_KEY = "d62a75f1fce09c8ba9d654cd0293d1a1"; //DO NOT TOUCH. This line has been patched by randomizer.js
+const SECRET_IV_KEY = "37f5b3ec8c7407a7d2e9fe96d0641d29"; //DO NOT TOUCH. This line has been patched by randomizer.js
 
 class CPU {
     private cursor: number;

@@ -14,7 +14,7 @@ const MAX_MEMORY_SIZE = 99999;
 const START_OF_CODE = 8;
 const DATA_SECTION = START_OF_CODE + 256;
 const STRING_TERMINATOR: number = 0xF1F2F3F4;
-const SECRET_IV_KEY = "d62a75f1fce09c8ba9d654cd0293d1a1"; //DO NOT TOUCH. This line has been patched by randomizer.js
+const SECRET_IV_KEY = "37f5b3ec8c7407a7d2e9fe96d0641d29"; //DO NOT TOUCH. This line has been patched by randomizer.js
 export const EMPTY_NUMBER: number  = 0xFAFAFAFA;
 export const EMPTY_STRING: string = String.fromCharCode(0x01);
 

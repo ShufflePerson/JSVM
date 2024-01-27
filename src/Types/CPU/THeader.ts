@@ -1,12 +1,11 @@
 enum THeader {
-    MAX_MEMORY_SIZE,
+    EMPTY_STRING,
+    IS_DEBUG,
+    STRING_TERMINATOR,
     START_OF_CODE,
     DATA_SECTION,
-    STRING_TERMINATOR,
     ENCRYPTION_KEY,
-    IS_DEBUG,
     EMPTY_NUMBER,
-    EMPTY_STRING,
+    MAX_MEMORY_SIZE,
 }
-
 export default THeader;
