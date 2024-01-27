@@ -109,6 +109,7 @@ class Parser {
                 continue;
             }
 
+            //Ignore comments
             if (instructionStr.substring(0, 2) == "--") {
                 continue;
             }
@@ -134,8 +135,6 @@ class Parser {
                 case "ClearParam"           :          this.handle_ClearParam               (args);   break;
                 case "PushToParam"          :          this.handle_PushToParam              (args);   break;
                 case "__LogRegisters"       :          this.handle___LogRegisters           (args);   break;
-
-
 
                 default:
                     this.crash(`No such instruction: "${instructionStr}"`, `Did you mean ${closestMatch(instructionStr, AllIntructions)}`)
