@@ -10,11 +10,11 @@ import THeader from "./Types/CPU/THeader";
 
 
 //TODO: Moves these to the inside of the class
-const MAX_MEMORY_SIZE = 99999;
-const START_OF_CODE = 8;
-const DATA_SECTION = START_OF_CODE + 256;
+const MAX_MEMORY_SIZE = 1024;
+const START_OF_CODE = 10;
+const DATA_SECTION = 0;
 const STRING_TERMINATOR: number = 0xF1F2F3F4;
-const SECRET_IV_KEY = "37f5b3ec8c7407a7d2e9fe96d0641d29"; //DO NOT TOUCH. This line has been patched by randomizer.js
+const SECRET_IV_KEY = "4ffe474a5c85c878eb7d51b1db8c2f27"; //DO NOT TOUCH. This line has been patched by randomizer.js
 export const EMPTY_NUMBER: number  = 0xFAFAFAFA;
 export const EMPTY_STRING: string = String.fromCharCode(0x01);
 
@@ -28,6 +28,7 @@ function convertUInt32ToKey(uint32: number) {
 
 class Parser {
     private bytecode: Uint32Array;
+    private datasection: Uint32Array;
     private variables: TVariables;
     private labels: TLabels;
     private cursors: ICursors;
@@ -38,6 +39,7 @@ class Parser {
 
     constructor(private input: string, inputFile: string = "", private isDebug: boolean = true, private parseLabels: boolean = true) {
         this.bytecode = new Uint32Array(MAX_MEMORY_SIZE);
+        this.datasection = new Uint32Array(MAX_MEMORY_SIZE / 2);
         this.encryptionKey = Math.floor(Math.random() * 2**32);
         this.labels = {};
         this.currentLine = 0;
@@ -46,15 +48,10 @@ class Parser {
         this.cursors = {
             code: START_OF_CODE,
             header: 0,
-            data: DATA_SECTION + 1
+            data: 0
         }
         this.writeHeader();
-        this.variables = {
-            "$EmptyNumber": {
-                value: this.addNumberToData(EMPTY_NUMBER),
-                type: "number"
-            }
-        };
+        this.variables = { };
 
 
         if (inputFile != "") {
@@ -96,7 +93,7 @@ class Parser {
         let lines = this.input.replace(/\r/g, "").split("\n");
 
         for (const line of lines) {
-            if (!line) continue;
+            if (!line) continue;    
             if (this.abort) break;
             const parts = line.split(",").map((part: string) => {
                 if (part[0] != " ") return part;
@@ -105,12 +102,6 @@ class Parser {
             const instructionStr = parts[0];
 
             if (!instructionStr) continue;
-
-            //Handle Variables
-            if (this.isVariableName(instructionStr)) {
-                this.handle_Variable(parts);
-                continue;
-            }
 
             //Ignore label instructions
             if (instructionStr[0] == "!") {
@@ -162,13 +153,18 @@ class Parser {
             this.cursors = {
                 code: START_OF_CODE,
                 header: 0,
-                data: DATA_SECTION + 1
+                data: 0
             }
             this.writeHeader();
             this.parseLabels = false;
             this.parse();
+        } else {
+            this.bytecode[THeader.DATA_SECTION] = this.cursors.code;
+            this.bytecode.set(this.datasection, this.cursors.code)
+    
+            this.bytecode = this.bytecode.slice(0, this.cursors.code + this.cursors.data)
         }
-        this.bytecode = this.bytecode.slice(0, this.cursors.data + 8)
+
     }
     public getByteCode(): Uint32Array {
         return this.bytecode;
@@ -185,12 +181,12 @@ class Parser {
         let encryptedData = this.encryptData(str);
 
         for (let i = 0; i < encryptedData.length; i++) {
-            this.bytecode[(startAddress) + i] = encryptedData[i].charCodeAt(0);
+            this.datasection[(startAddress) + i] = encryptedData[i].charCodeAt(0);
             this.cursors.data++;
         }
 
 
-        this.bytecode[this.cursors.data++] = STRING_TERMINATOR;
+        this.datasection[this.cursors.data++] = STRING_TERMINATOR;
 
         return startAddress;
     }
@@ -202,9 +198,9 @@ class Parser {
         console.log(this.debugStack.slice(-5).join("\n") + "\n")
         if (this.currentLine > 0)
             console.error(this.currentLine - 1, ":", lines[this.currentLine - 1])
-        console.error(`\x1b[31m${this.currentLine} : ${lines[this.currentLine]}\t<<<< ERROR ( ${message} )\x1b[0m`)
+        console.error(`${this.currentLine} : ${lines[this.currentLine]}\t\x1b[31m<<<< ERROR ( ${message} )\x1b[0m`)
         if (suggestion) {
-            console.log(`\x1b[32m( ${suggestion} )\x1b[0m`)
+            console.log(`   \x1b[32m( ${suggestion} )\x1b[0m`)
         }
         console.error(this.currentLine + 1, ":", lines[this.currentLine + 1])
         console.error("================PARSING CRASH================");
@@ -244,31 +240,8 @@ class Parser {
 
     public addNumberToData(num: number): number {
         let startAddress = this.cursors.data++;
-        this.bytecode[startAddress] = num;
+        this.datasection[startAddress] = num;
         return startAddress;
-    }
-
-    private variableNameToHash(name: string): Uint32Array {
-        const hash = crypto.createHash('sha1').update(name, 'utf8').digest('hex');
-        const firstFourBytes = Buffer.from(hash, 'hex').slice(0, 4);
-        return new Uint32Array(firstFourBytes);
-    }
-
-    private loadVariableStr(name: string): number {
-        const variable = this.variables[name];
-        if (!variable) return -1;
-        let data = variable.value;
-        return data;
-    }
-    
-    private loadVariableNum(name: string): number {
-        const variable = this.variables[name];
-        if (!variable) {
-            this.crash(`The variable ${name} does not (yet) exist.`);
-            return -1;
-        }
-        let data = variable.value;
-        return data;
     }
 
     private isNumber(val: string): boolean {
@@ -296,10 +269,6 @@ class Parser {
         }
     }
 
-    private isVariableName(name: string): boolean {
-        return name[0] == "$";
-    }
-
     private ensureRegisterOrFail(register: string): number {
         if (register[0] != "#") {
             this.crash("You can only load a value into a register", `Did you mean #${register}`);
@@ -320,10 +289,6 @@ class Parser {
     }
 
     private moveToNextCodeByte(): number {
-        if (this.cursors.code >= DATA_SECTION) {
-            this.crash("Reached the end of code region.");
-            return this.cursors.code;
-        }
         return this.cursors.code++;
     }
 
@@ -335,7 +300,9 @@ class Parser {
         const registerCode = this.ensureRegisterOrFail(register);
 
         this.addDebug("LoadString: Attempting to get the string address");
-        const strAddress = this.loadVariableStr(str) == -1 ? this.addStringToData(str) : this.loadVariableStr(str);
+
+        let strAddress = this.addStringToData(str);
+
         this.bytecode[this.moveToNextCodeByte()] = TInstructions.LoadString;
         this.bytecode[this.moveToNextCodeByte()] = registerCode;
         this.bytecode[this.moveToNextCodeByte()] = strAddress;
@@ -354,46 +321,13 @@ class Parser {
         this.ensureArguments(parts, ["register", "numberOrVariable"]);
         let [register, numberOrVariable] = parts;
 
-        if (this.isVariableName(numberOrVariable)) {
-            numberOrVariable = this.loadVariableNum(numberOrVariable).toString();
-            this.bytecode[this.moveToNextCodeByte()] = TInstructions.LoadNumberAbs;
-        } else {
-            if (!this.isNumber(numberOrVariable)) {
-                return this.crash("A non integer value was provided for LoadNumber");
-            }
-            this.bytecode[this.moveToNextCodeByte()] = TInstructions.LoadNumber;
+        if (!this.isNumber(numberOrVariable)) {
+            return this.crash("A non integer value was provided for LoadNumber");
         }
 
-
+        this.bytecode[this.moveToNextCodeByte()] = TInstructions.LoadNumber;
         this.bytecode[this.moveToNextCodeByte()] = this.ensureRegisterOrFail(register);
         this.bytecode[this.moveToNextCodeByte()] = Number.parseInt(numberOrVariable);
-    }
-
-    private handle_Variable(parts: string[]) {
-        this.ensureArguments(parts, ["variableName", "data"]);
-        const [variableName, data] = parts;
-        const typeVariable = variableName.substring(variableName.length - 3);
-
-        const existingVar = this.variables[variableName];
-        if (existingVar) {
-            const existingAddress = existingVar.value;
-            if (typeVariable == "Num") {
-                this.bytecode[existingAddress] = Number.parseInt(data);
-            }
-        }
-        
-        if (typeVariable == "Str") {
-            let strAddress = this.addStringToData(data);
-            this.variables[variableName] = {
-                type: "string",
-                value: strAddress
-            }
-        } else if (typeVariable == "Num") {
-            this.variables[variableName] = {
-                type: "number",
-                value: this.addNumberToData(Number.parseInt(data))
-            }
-        }
     }
 
     private handle_Inc(parts: string[]) {

@@ -15,6 +15,7 @@ function checkRegister(cpu: CPU, cpuName: string, registerName: string, register
         testPassed(`[${cpuName}] [${registerName}] [✓]`)
     } else {
         testFailed(`[${cpuName}] [${registerName}] [X] Expected: "${expectedValue}" but got "${cpu.getRegister(register)}"`)
+        cpu.crash("Test Failed")
     }
 }
 
@@ -60,9 +61,12 @@ checkRegister(mathCPU, "mathCPU", "num3", TRegisters.num3, 15);
 checkRegister(mathCPU, "mathCPU", "num4", TRegisters.num4, 5);
 
 
+/*
 checkRegister(variablesCPU, "variablesCPU", "num1", TRegisters.num1, 1337);
 checkRegister(variablesCPU, "variablesCPU", "str1", TRegisters.str1, "console.debug");
 checkRegister(variablesCPU, "variablesCPU", "str3", TRegisters.str2, "Hello World. I am a very long variable with a lot of text haha hello");
+*/
+
 
 checkRegister(simpleJumpCPU, "simpleJumpCPU", "str1", TRegisters.str1, "console.debug");
 checkRegister(simpleJumpCPU, "simpleJumpCPU", "str2", TRegisters.str2, "I got loaded after the Jmp");

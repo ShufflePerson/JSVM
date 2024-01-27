@@ -10,7 +10,7 @@ console.log()
 import CPU from "./Cpu";
 import Parser from "./Parser";
 
-let parser = new Parser("", "./vm/parameters");
+let parser = new Parser("", "./vm/math");
 parser.parse();
 parser.dumpToFile("./bytecode.txt")
 

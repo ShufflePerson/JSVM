@@ -12,7 +12,7 @@ function convertUInt32ToKey(uint32: number) {
 }
 
 const MAX_CYCLES_TIMEOUT: number = 10000;
-const SECRET_IV_KEY = "37f5b3ec8c7407a7d2e9fe96d0641d29"; //DO NOT TOUCH. This line has been patched by randomizer.js
+const SECRET_IV_KEY = "4ffe474a5c85c878eb7d51b1db8c2f27"; //DO NOT TOUCH. This line has been patched by randomizer.js
 
 class CPU {
     private cursor: number;
@@ -108,6 +108,7 @@ class CPU {
     }
 
     private lookupString(address: number): string {
+        address += this.DATA_SECTION;
         let builtString = "";
         for (let i = address; i < this.MAX_MEMORY_SIZE; i++) {
             if (this.bytecode[i] == this.STRING_TERMINATOR) break;
@@ -136,7 +137,7 @@ class CPU {
 
 
 
-    private crash(message: string, suggestion: string = "") {
+    public crash(message: string, suggestion: string = "") {
         if (!this.isDebug) return;
         console.error("================CPU CRASH================");
         console.log("Last instructions executed: ")
@@ -233,7 +234,7 @@ class CPU {
     private handle_LoadNumberAbs() {
         const register      = this.bytecode[this.moveToNextCodeByte()];
         const numberAddress = this.bytecode[this.moveToNextCodeByte()];
-        const number        = this.bytecode[numberAddress];
+        const number        = this.bytecode[numberAddress + this.DATA_SECTION];
         this.addToDebugStack(`LoadNumberAbs, ${register}, ${numberAddress}`);
         
         this.registers[register] = number;
