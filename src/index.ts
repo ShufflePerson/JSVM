@@ -1,3 +1,6 @@
+import fs from "fs";
+if (!fs.existsSync("./dumps")) fs.mkdirSync("./dumps")
+
 console.clear();
 console.log("==================TESTS==================")
 import "./Tests"
