@@ -1,0 +1,22 @@
+-- Prints out "Hello World" and then "Bye" using the param register and CallInternal function
+
+LoadString, #str1, console.debug
+LoadString, #str2, Hello World
+PushToParam, #str2
+CallInternal, #str1
+ClearParam
+
+LoadString, #str2, Welcome
+PushToParam, #str2
+
+LoadString, #str2, To
+PushToParam, #str2
+
+LoadString, #str2, The
+PushToParam, #str2
+
+LoadString, #str2, CPU
+PushToParam, #str2
+
+CallInternal, #str1
+__LogRegisters

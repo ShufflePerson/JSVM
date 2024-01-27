@@ -1,4 +1,4 @@
-import CPU, { EMPTY_STRING } from "./Cpu";
+import CPU from "./Cpu";
 import Parser from "./Parser";
 import TRegisters from "./Types/CPU/TRegisters";
 
@@ -42,7 +42,7 @@ let simpleJumpCPU   = new CPU(simple_jump_parse.getByteCode(), false);
 let condJumpsCPU    = new CPU(cond_jumps_parse.getByteCode(), false);
 
 console.log("\n       =========VM OUTPUTS=========\n")
-
+    
 
 
 
@@ -66,7 +66,7 @@ checkRegister(variablesCPU, "variablesCPU", "str3", TRegisters.str2, "Hello Worl
 
 checkRegister(simpleJumpCPU, "simpleJumpCPU", "str1", TRegisters.str1, "console.debug");
 checkRegister(simpleJumpCPU, "simpleJumpCPU", "str2", TRegisters.str2, "I got loaded after the Jmp");
-checkRegister(simpleJumpCPU, "simpleJumpCPU", "str3", TRegisters.str3, EMPTY_STRING);
+checkRegister(simpleJumpCPU, "simpleJumpCPU", "str3", TRegisters.str3, simpleJumpCPU.getEmptyString());
 
 checkRegister(condJumpsCPU, "simpleJumpCPU", "str1", TRegisters.str1, "console.debug");
 checkRegister(condJumpsCPU, "simpleJumpCPU", "num1", TRegisters.num1, 10);

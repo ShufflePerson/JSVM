@@ -1,4 +1,4 @@
-64 BIT
+32 BIT
 
 ## Instructions
 
@@ -28,14 +28,13 @@ Subtracts at the `numRegister` by `amount`
 TODO: Supports Immediate and Absolute values. Absolute values can only be provided via variables.
 
 ### Clean
-Cleans all registries
+Cleans all registries and sets them to their default zero value
 
 ### JMP, !Label
 Jumps to a !Label
 
 ### JmpIfEqual, !Label, #register1, #register2
 Jumps to `!Label` if `#register1` is equal to `#register2`
-
 
 ### JmpIfNotEqual, !Label, #register1, #register2
 Jumps to `!Label` if `#register1` is not equal to `#register2`
@@ -49,12 +48,37 @@ Multiplies `#numRegister` by `amount`
 ### Div, #numRegister, amount
 Divides `#numRegister` by `amount`
 
+### CallInternal, #strRegister
+Calls a function in the current scope with the `#strRegister` path. 
+Passes in the `#param` as parameters.
+
+### ClearParam
+Resets `#param` register to its default empty value. 
+
+### PushToParam, #register
+Pushes to the `#param` register the ´#register` current value
+
+
+## Debug Instructions
+All debug instructions are removed when compiling in release mode
+
+### __LogRegisters
+Logs out all registers to the console
+
+
 ## Registers
 
 ### Strings
 str1
 str2
+str3
+str4
 
 ### Numbers
 num1
 num2
+num3
+num4                    
+
+### Parameters
+param (array)

@@ -1,5 +1,5 @@
 import TInstructions, { AllIntructions } from "./Types/CPU/TInstructions";
-import TRegisters from "./Types/CPU/TRegisters";
+import TRegisters, { AllRegisters } from "./Types/CPU/TRegisters";
 import crypto from "crypto";
 
 
@@ -10,9 +10,7 @@ function convertUInt32ToKey(uint32: number) {
     return keyBuffer;
 }
 
-export const EMPTY_NUMBER: number  = 0xFAFAFAFA;
 const MAX_CYCLES_TIMEOUT: number = 10000;
-export const EMPTY_STRING: string = String.fromCharCode(0x01);
 const SECRET_IV_KEY = "9e1c2dc84cd00ae49e1c2dc84cd00ae4";
 
 class CPU {
@@ -26,6 +24,9 @@ class CPU {
     private STRING_TERMINATOR: number;
     private debugStack: string[];
     private decryptKey: number;
+    private isDebug: boolean;
+    private EMPTY_NUMBER: number;
+    private EMPTY_STRING: string;
 
 
     constructor(public bytecode: Uint32Array, private logAll: boolean = true) {
@@ -35,6 +36,11 @@ class CPU {
         this.DATA_SECTION = this.bytecode[2];
         this.STRING_TERMINATOR = this.bytecode[3];
         this.decryptKey = this.bytecode[4];
+        this.isDebug = this.bytecode[5] == 1;
+        this.EMPTY_NUMBER = this.bytecode[6];
+        this.EMPTY_STRING = String.fromCharCode(this.bytecode[7]);
+
+
         this.cursor = this.START_OF_CODE;
         this.totalCycles = 0;
         this.debugStack = [];
@@ -66,6 +72,10 @@ class CPU {
                 case TInstructions.ClearRegister:       this.handle_ClearRegister();        break;
                 case TInstructions.Mul:                 this.handle_Mul();                  break;
                 case TInstructions.Div:                 this.handle_Div();                  break;
+                case TInstructions.CallInternal:        this.handle_CallInternal();         break;
+                case TInstructions.ClearParam:          this.handle_ClearParam();           break;
+                case TInstructions.PushToParam:         this.handle_PushToParam();          break;
+                case TInstructions.__LogRegisters:      this.handle___LogRegisters();       break;
 
                 case 0: break;
                 default:
@@ -74,6 +84,10 @@ class CPU {
                     break;
             }
         }
+    }
+
+    public getEmptyString(): string {
+        return this.EMPTY_STRING;
     }
 
     private decryptData(encryptedData: string): string {
@@ -148,7 +162,7 @@ class CPU {
         const keys = Object.keys(this.registers);
 
         for (const key of keys) {
-            if (!exclude.includes(Number.parseInt(key)) && this.registers[key] != EMPTY_NUMBER && this.registers[key] != EMPTY_STRING) registriesValues.push(this.registers[key])
+            if (!exclude.includes(Number.parseInt(key)) && this.registers[key] != this.EMPTY_NUMBER && this.registers[key] != this.EMPTY_STRING) registriesValues.push(this.registers[key])
         }
         
 
@@ -166,19 +180,20 @@ class CPU {
     private handle_Clean() {
         this.debugStack.push(`Clean`);
         this.log("[CPU] Registries Cleaned")
-        this.registers[TRegisters.str1] = EMPTY_STRING;
-        this.registers[TRegisters.str2] = EMPTY_STRING;
-        this.registers[TRegisters.str3] = EMPTY_STRING;
-        this.registers[TRegisters.str4] = EMPTY_STRING;
-        this.registers[TRegisters.num1] = EMPTY_NUMBER;
-        this.registers[TRegisters.num2] = EMPTY_NUMBER;
-        this.registers[TRegisters.num3] = EMPTY_NUMBER;
-        this.registers[TRegisters.num4] = EMPTY_NUMBER;
+        this.registers[TRegisters.str1] = this.EMPTY_STRING;
+        this.registers[TRegisters.str2] = this.EMPTY_STRING;
+        this.registers[TRegisters.str3] = this.EMPTY_STRING;
+        this.registers[TRegisters.str4] = this.EMPTY_STRING;
+        this.registers[TRegisters.num1] = this.EMPTY_NUMBER;
+        this.registers[TRegisters.num2] = this.EMPTY_NUMBER;
+        this.registers[TRegisters.num3] = this.EMPTY_NUMBER;
+        this.registers[TRegisters.num4] = this.EMPTY_NUMBER;
+        this.registers[TRegisters.param] = [];
     }
 
     private handle_CallDirectObject() {
         this.debugStack.push(`CallDirectObject`);
-        if (this.registers[TRegisters.str1] == EMPTY_STRING) {
+        if (this.registers[TRegisters.str1] == this.EMPTY_STRING) {
             return this.crash("The #str1 register is empty.");
         }
 
@@ -272,13 +287,16 @@ class CPU {
             case TRegisters.num2:
             case TRegisters.num3:
             case TRegisters.num4:
-                this.setRegister(register, EMPTY_NUMBER);
+                this.setRegister(register, this.EMPTY_STRING);
                 break;
             case TRegisters.str1:
             case TRegisters.str2:
             case TRegisters.str3:
             case TRegisters.str4:
-                this.setRegister(register, EMPTY_STRING);
+                this.setRegister(register, this.EMPTY_STRING);
+                break;
+            case TRegisters.param:
+                this.setRegister(TRegisters.param, []);
                 break;
             default:
                 this.crash(`The register by the opcode of ${register} is not a valid register.`);
@@ -302,6 +320,43 @@ class CPU {
         this.setRegister(register, this.getRegister(register) / amount);
     }
 
+    private handle_CallInternal() {
+        const register    = this.bytecode[this.moveToNextCodeByte()];
+        let propetyPath = this.registers[register].split(".");
+        let obj: any = global;
+        for (const propety of propetyPath) {
+            if (obj[propety])
+                obj = obj[propety]
+            else {
+                this.halt = true;
+                return this.crash(`The object path of "${propetyPath.join(".")} is not accessible in the current context.`);
+            }
+        }
+        obj(...this.getRegister(TRegisters.param));
+    }
+    private handle_ClearParam() {
+        this.setRegister(TRegisters.param, []);
+    }
+    private handle_PushToParam() {
+        const register    = this.bytecode[this.moveToNextCodeByte()];
+        this.setRegister(TRegisters.param, [...this.getRegister(TRegisters.param), this.getRegister(register)])
+    }
+
+    private handle___LogRegisters() {
+        if (this.isDebug) {
+            console.log("======REGISTERS======")
+            const names = AllRegisters;
+            for (const name of names) {
+                let value = this.getRegister(TRegisters[name as keyof typeof TRegisters]);
+                if (value == this.EMPTY_NUMBER)
+                    value = "(empty)";
+                if (value == this.EMPTY_STRING)
+                    value = "(empty)";
+                console.log(name, ":", value)
+            }
+            console.log("======REGISTERS======")
+        }
+    }
 }
 
 export default CPU;

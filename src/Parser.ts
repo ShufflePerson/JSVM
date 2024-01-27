@@ -6,15 +6,17 @@ import { TLabels } from "./Types/Parser/TLabels";
 import { TVariables } from "./Types/Parser/TVariables";
 import ICursors from "./Types/Parser/ICursors";
 import { closestMatch } from "closest-match";
-import { EMPTY_NUMBER } from "./Cpu";
 
 
 //TODO: Moves these to the inside of the class
 const MAX_MEMORY_SIZE = 99999;
-const START_OF_CODE = 10;
+const START_OF_CODE = 8;
 const DATA_SECTION = START_OF_CODE + 256;
 const STRING_TERMINATOR: number = 0xF1F2F3F4;
 const SECRET_IV_KEY = "9e1c2dc84cd00ae49e1c2dc84cd00ae4";
+export const EMPTY_NUMBER: number  = 0xFAFAFAFA;
+export const EMPTY_STRING: string = String.fromCharCode(0x01);
+
 
 function convertUInt32ToKey(uint32: number) {
     const keyBuffer = Buffer.alloc(32);
@@ -33,7 +35,7 @@ class Parser {
     private debugStack: string[];
     private encryptionKey: number;
 
-    constructor(private input: string, inputFile: string = "", private parseLabels: boolean = true) {
+    constructor(private input: string, inputFile: string = "", private isDebug: boolean = true, private parseLabels: boolean = true) {
         this.bytecode = new Uint32Array(MAX_MEMORY_SIZE);
         this.encryptionKey = Math.floor(Math.random() * 2**32);
         this.labels = {};
@@ -83,6 +85,9 @@ class Parser {
         this.bytecode[this.cursors.header++] = DATA_SECTION;
         this.bytecode[this.cursors.header++] = STRING_TERMINATOR;
         this.bytecode[this.cursors.header++] = this.encryptionKey;
+        this.bytecode[this.cursors.header++] = this.isDebug ? 1 : 0;
+        this.bytecode[this.cursors.header++] = EMPTY_NUMBER;
+        this.bytecode[this.cursors.header++] = EMPTY_STRING.charCodeAt(0);
 
     }
 
@@ -112,6 +117,10 @@ class Parser {
                 continue;
             }
 
+            if (instructionStr.substring(0, 2) == "--") {
+                continue;
+            }
+
             const args = parts.slice(1);
         
             switch (instructionStr) {
@@ -129,6 +138,12 @@ class Parser {
                 case "ClearRegister"        :          this.handle_ClearRegister            (args);   break;
                 case "Mul"                  :          this.handle_Mul                      (args);   break;
                 case "Div"                  :          this.handle_Div                      (args);   break;
+                case "CallInternal"         :          this.handle_CallInternal             (args);   break;
+                case "ClearParam"           :          this.handle_ClearParam               (args);   break;
+                case "PushToParam"          :          this.handle_PushToParam              (args);   break;
+                case "__LogRegisters"       :          this.handle___LogRegisters           (args);   break;
+
+
 
                 default:
                     this.crash(`No such instruction: "${instructionStr}"`, `Did you mean ${closestMatch(instructionStr, AllIntructions)}`)
@@ -484,6 +499,33 @@ class Parser {
         this.bytecode[this.moveToNextCodeByte()] = TInstructions.Div;
         this.bytecode[this.moveToNextCodeByte()] = register;
         this.bytecode[this.moveToNextCodeByte()] = Number.parseInt(amount);
+    }
+
+    private handle_CallInternal(parts: string[]) {
+        this.ensureArguments(parts, ["register"]);
+        const [registerName] = parts;
+        const register = this.ensureRegisterOrFail(registerName);
+        
+        this.bytecode[this.moveToNextCodeByte()] = TInstructions.CallInternal;
+        this.bytecode[this.moveToNextCodeByte()] = register;
+    }
+
+    private handle_ClearParam(parts: string[]) {
+        this.bytecode[this.moveToNextCodeByte()] = TInstructions.ClearParam;
+    }
+
+    private handle_PushToParam(parts: string[]) {
+        this.ensureArguments(parts, ["register"]);
+        const [registerName] = parts;
+        const register = this.ensureRegisterOrFail(registerName);
+
+        this.bytecode[this.moveToNextCodeByte()] = TInstructions.PushToParam;
+        this.bytecode[this.moveToNextCodeByte()] = register;
+    }
+
+    private handle___LogRegisters(parts: string[]) {
+        if (this.isDebug)
+            this.bytecode[this.moveToNextCodeByte()] = TInstructions.__LogRegisters;
     }
 }
 

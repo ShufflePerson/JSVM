@@ -8,6 +8,8 @@ enum TRegisters {
     num2 = 0x13,
     num3 = 0x14,
     num4 = 0x15,
+
+    param = 0x22,
 }
 
 const AllRegisters: string[] = ((myEnum: any): string[] => Object.keys(myEnum).filter(k => typeof myEnum[k] === 'number'))(TRegisters);

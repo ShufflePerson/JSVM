@@ -15,6 +15,14 @@ enum TInstructions {
     ClearRegister,      //2 Bytes
     Mul,                //3 Bytes
     Div,                //3 Bytes
+    CallInternal,       //2 Bytes
+    ClearParam,         //1 Byte
+    PushToParam,        //2 Bytes
+
+
+
+    //Debug
+    __LogRegisters,     //1 Byte
 }
 
 const AllIntructions: string[] = ((myEnum: any): string[] => Object.keys(myEnum).filter(k => typeof myEnum[k] === 'number'))(TInstructions);
