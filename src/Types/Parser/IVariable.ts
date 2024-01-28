@@ -1,4 +1,4 @@
 export interface IVariable {
-    type: "string" | "number";
+    type: "string" | "int";
     address: number;
 }
