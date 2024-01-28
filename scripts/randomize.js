@@ -46,7 +46,7 @@ function patchInstructions() {
 
     for (let i = 0; i < lines.length; i++) {
         if (lines[i].startsWith("    PADDING_DO_NOT_USE")) {
-            lines[i] = `    PADDING_DO_NOT_USE = 0x${crypto.randomBytes(1).toString("hex")}, ${note}`
+            lines[i] = `    PADDING_DO_NOT_USE = 0x${crypto.randomBytes(4).toString("hex")}, ${note}`
         }
     }
     
