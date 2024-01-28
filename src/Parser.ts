@@ -14,7 +14,7 @@ const MAX_MEMORY_SIZE = 1024;
 const START_OF_CODE = 10;
 const DATA_SECTION = 0;
 const STRING_TERMINATOR: number = 0xF1F2F3F4;
-const SECRET_IV_KEY = "4ffe474a5c85c878eb7d51b1db8c2f27"; //DO NOT TOUCH. This line has been patched by randomizer.js
+const SECRET_IV_KEY = "3bc33a2395d07e64a7fd991e35c926fb"; //DO NOT TOUCH. This line has been patched by randomizer.js
 export const EMPTY_NUMBER: number  = 0xFAFAFAFA;
 export const EMPTY_STRING: string = String.fromCharCode(0x01);
 
@@ -42,7 +42,7 @@ class Parser {
         this.datasection = new Uint32Array(MAX_MEMORY_SIZE / 2);
         this.encryptionKey = Math.floor(Math.random() * 2**32);
         this.labels = {};
-        this.currentLine = 0;
+        this.currentLine = -1;
         this.abort = false;
         this.debugStack = [];
         this.cursors = {
@@ -75,6 +75,7 @@ class Parser {
 
     private resetBytecode() {
         this.bytecode = new Uint32Array(MAX_MEMORY_SIZE);
+        this.datasection = new Uint32Array(MAX_MEMORY_SIZE / 2);
     }
 
     private writeHeader() {
@@ -93,6 +94,7 @@ class Parser {
         let lines = this.input.replace(/\r/g, "").split("\n");
 
         for (const line of lines) {
+            this.currentLine++;
             if (!line) continue;    
             if (this.abort) break;
             const parts = line.split(",").map((part: string) => {
@@ -106,6 +108,12 @@ class Parser {
             //Ignore label instructions
             if (instructionStr[0] == "!") {
                 this.handle_Label(parts);
+                continue;
+            }
+
+
+            if (this.isVariable(instructionStr)) {
+                this.handle_variable(parts);
                 continue;
             }
 
@@ -140,15 +148,15 @@ class Parser {
                     this.crash(`No such instruction: "${instructionStr}"`, `Did you mean ${closestMatch(instructionStr, AllIntructions)}`)
                     break;
             }
-            this.currentLine++;
         }
 
         if (this.parseLabels) {
             console.log("Labels parsed, running the main parse now.");
             this.resetBytecode();
-            this.currentLine = 0;
+            this.currentLine = -1;
             this.abort = false;
             this.debugStack = [];
+            this.variables = {};
             this.cursors = {
                 code: START_OF_CODE,
                 header: 0,
@@ -197,7 +205,7 @@ class Parser {
         console.log(this.debugStack.slice(-5).join("\n") + "\n")
         if (this.currentLine > 0)
             console.error(this.currentLine - 1, ":", lines[this.currentLine - 1])
-        console.error(`${this.currentLine} : ${lines[this.currentLine]}\t\x1b[31m<<<< ERROR ( ${message} )\x1b[0m`)
+            console.error(`${this.currentLine} : ${lines[this.currentLine]}\t\x1b[31m<<<< ERROR ( ${message} )\x1b[0m`)
         if (suggestion) {
             console.log(`   \x1b[32m( ${suggestion} )\x1b[0m`)
         }
@@ -229,6 +237,10 @@ class Parser {
         return 0xFFFFFFFF; 
     }
 
+    private isVariable(str: string) {
+        return str[0] == "$";
+    }
+
     private ensureArguments(items: string[], args: string[]) {
         if (args.length <= items.length) return;
         
@@ -237,7 +249,7 @@ class Parser {
         this.crash(`Missing the following arguments: ${result.join(", ")}`);
     }
 
-    public addNumberToData(num: number): number {
+    private addNumberToData(num: number): number {
         let startAddress = this.cursors.data++;
         this.datasection[startAddress] = num;
         return startAddress;
@@ -298,13 +310,25 @@ class Parser {
         this.addDebug("LoadString: Attempting to parse the Register parameter");
         const registerCode = this.ensureRegisterOrFail(register);
 
-        this.addDebug("LoadString: Attempting to get the string address");
+        if (str[0] != "$") {
+            this.addDebug("LoadString: Attempting to get the string address");
+            let strAddress = this.addStringToData(str);
+    
+            this.bytecode[this.moveToNextCodeByte()] = TInstructions.LoadString;
+            this.bytecode[this.moveToNextCodeByte()] = registerCode;
+            this.bytecode[this.moveToNextCodeByte()] = strAddress;
+        } else if (this.isVariable(str)) {
+            let variable = this.variables[str];
+            if (!variable) return this.crash(`Failed to find a variable by the name of ${str}`);
+            let indAddress = variable.address;
 
-        let strAddress = this.addStringToData(str);
+            this.bytecode[this.moveToNextCodeByte()] = TInstructions.LoadStringInd;
+            this.bytecode[this.moveToNextCodeByte()] = registerCode;
+            this.bytecode[this.moveToNextCodeByte()] = indAddress;
 
-        this.bytecode[this.moveToNextCodeByte()] = TInstructions.LoadString;
-        this.bytecode[this.moveToNextCodeByte()] = registerCode;
-        this.bytecode[this.moveToNextCodeByte()] = strAddress;
+
+        }
+        
     }
 
 
@@ -331,17 +355,33 @@ class Parser {
 
     private handle_Inc(parts: string[]) {
         this.ensureArguments(parts, ["register"]);
-        let [ register ] = parts;
-        this.bytecode[this.moveToNextCodeByte()] = TInstructions.Inc;
-        this.bytecode[this.moveToNextCodeByte()] = this.ensureRegisterOrFail(register);
-    }
+        let [ registerOrVarible ] = parts;
+
+        if (this.isVariable(registerOrVarible)) {
+            let variable = this.variables[registerOrVarible];
+            if (!variable) return this.crash(`Failed to locate the variable ${registerOrVarible}`);            
+            this.bytecode[this.moveToNextCodeByte()] = TInstructions.IncInd;
+            this.bytecode[this.moveToNextCodeByte()] = variable.address;
+        } else {
+            this.bytecode[this.moveToNextCodeByte()] = TInstructions.Inc;
+            this.bytecode[this.moveToNextCodeByte()] = this.ensureRegisterOrFail(registerOrVarible);
+        }
+    }        
 
     private handle_Dec(parts: string[]) {
-        this.ensureArguments(parts, ["register"]);
-        let [ register ] = parts;
-        this.bytecode[this.moveToNextCodeByte()] = TInstructions.Dec;
-        this.bytecode[this.moveToNextCodeByte()] = this.ensureRegisterOrFail(register);
+        this.ensureArguments(parts, ["registerOrVariable"]);
+        let [ registerOrVariable ] = parts;
+        if (this.isVariable(registerOrVariable)) {
+            let variable = this.variables[registerOrVariable];
+            if (!variable) return this.crash(`Failed to find the variable ${registerOrVariable}`);
+            this.bytecode[this.moveToNextCodeByte()] = TInstructions.DecInd;
+            this.bytecode[this.moveToNextCodeByte()] = variable.address;
+        } else {
+            this.bytecode[this.moveToNextCodeByte()] = TInstructions.Dec;
+            this.bytecode[this.moveToNextCodeByte()] = this.ensureRegisterOrFail(registerOrVariable);
+        }
     }
+        
 
     private handle_Add(parts: string[]) {
         this.ensureArguments(parts, ["register", "amount"]);
@@ -412,26 +452,40 @@ class Parser {
     }
 
     private handle_Mul(parts: string[]) {
-        this.ensureArguments(parts, ["register", "amount"]);
-        const [registerName, amount] = parts;
+        this.ensureArguments(parts, ["registerOrVariable", "amount"]);
+        const [registerOrVariable, amount] = parts;
         if (!this.isNumber(amount)) return this.crash("Amount must be a number.")
 
-        const register = this.ensureRegisterOrFail(registerName);
+        if (this.isVariable(registerOrVariable)) {
+            let variable = this.variables[registerOrVariable];
+            if (!variable) return this.crash(`Failed to find a variable with the name of: ${registerOrVariable}`)
+            
+            this.bytecode[this.moveToNextCodeByte()] = TInstructions.MulInd;
+            this.bytecode[this.moveToNextCodeByte()] = variable.address;
+        } else {
+            this.bytecode[this.moveToNextCodeByte()] = TInstructions.Mul;
+            this.bytecode[this.moveToNextCodeByte()] = this.ensureRegisterOrFail(registerOrVariable);
+        }
 
-        this.bytecode[this.moveToNextCodeByte()] = TInstructions.Mul;
-        this.bytecode[this.moveToNextCodeByte()] = register;
         this.bytecode[this.moveToNextCodeByte()] = Number.parseInt(amount);
     }
 
     private handle_Div(parts: string[]) {
-        this.ensureArguments(parts, ["register", "amount"]);
-        const [registerName, amount] = parts;
+        this.ensureArguments(parts, ["registerOrVariable", "amount"]);
+        const [registerOrVariable, amount] = parts;
         if (!this.isNumber(amount)) return this.crash("Amount must be a number.")
         
-        const register = this.ensureRegisterOrFail(registerName);
+        if (this.isVariable(registerOrVariable)) {
+            let variable = this.variables[registerOrVariable];
+            if (!variable) return this.crash(`Failed to find a variable by the name of: ${registerOrVariable}`);
 
-        this.bytecode[this.moveToNextCodeByte()] = TInstructions.Div;
-        this.bytecode[this.moveToNextCodeByte()] = register;
+            this.bytecode[this.moveToNextCodeByte()] = TInstructions.DivInd;
+            this.bytecode[this.moveToNextCodeByte()] = variable.address;
+        } else {
+            this.bytecode[this.moveToNextCodeByte()] = TInstructions.Div;
+            this.bytecode[this.moveToNextCodeByte()] = this.ensureRegisterOrFail(registerOrVariable);
+        }
+
         this.bytecode[this.moveToNextCodeByte()] = Number.parseInt(amount);
     }
 
@@ -450,16 +504,73 @@ class Parser {
 
     private handle_PushToParam(parts: string[]) {
         this.ensureArguments(parts, ["register"]);
-        const [registerName] = parts;
-        const register = this.ensureRegisterOrFail(registerName);
+        let [registerOrVariable] = parts;
+        registerOrVariable = registerOrVariable.replace(/ /g, "")
+        if (registerOrVariable[0] == "#") {
+            this.bytecode[this.moveToNextCodeByte()] = TInstructions.PushToParam;
+            this.bytecode[this.moveToNextCodeByte()] = this.ensureRegisterOrFail(registerOrVariable);
+        } else if (this.isVariable(registerOrVariable)) {
+            let variable = this.variables[registerOrVariable];
+            if (!variable) return this.crash(`The variable has not yet been defined. (${registerOrVariable})`);
+            if (variable.type == "string")
+                this.bytecode[this.moveToNextCodeByte()] = TInstructions.PushToParamIndStr;
+            else 
+                this.bytecode[this.moveToNextCodeByte()] = TInstructions.PushToParamInd;
+            this.bytecode[this.moveToNextCodeByte()] = variable.address;
+        }
 
-        this.bytecode[this.moveToNextCodeByte()] = TInstructions.PushToParam;
-        this.bytecode[this.moveToNextCodeByte()] = register;
     }
 
     private handle___LogRegisters(parts: string[]) {
         if (this.isDebug)
             this.bytecode[this.moveToNextCodeByte()] = TInstructions.__LogRegisters;
+    }
+
+    private handle_variable(parts: string[]) {
+        this.ensureArguments(parts, ["name", "type", "value"]);
+        let [name, type, value] = parts;
+        type = type.toLowerCase();
+        if (type != "int" && type != "string") 
+            return this.crash(`Invalid type for "${name}" variable provided.`, `Did you mean ${closestMatch(type, ["string", "int"])}`)
+        
+        if (type == "int" && !this.isNumber(value))
+            return this.crash("A valid interger must be provided.");
+
+        if (!this.variables[name])  {
+            let address = 0x00;
+
+            if (type == "int") {
+                if (!this.isNumber(value)) return this.crash("A valid interger must be provided. ");
+                address = this.addNumberToData(Number.parseInt(value));
+            }
+            
+            if (type == "string") {
+                address = this.addStringToData(value);
+            }
+
+
+            address = this.addNumberToData(address);
+
+            this.variables[name] = {
+                type,
+                address,
+            }
+        } else {
+            let variable_virtual_table = this.variables[name].address;
+            let new_value_address: number = 0;
+
+            if (this.variables[name].type == "string") {
+                new_value_address = this.addStringToData(value);
+                this.bytecode[this.moveToNextCodeByte()] = TInstructions.UpdateVariableStr;
+            }
+            else {
+                new_value_address = this.addNumberToData(Number.parseInt(value));
+                this.bytecode[this.moveToNextCodeByte()] = TInstructions.UpdateVariable;
+            }
+            this.bytecode[this.moveToNextCodeByte()] = variable_virtual_table;
+            this.bytecode[this.moveToNextCodeByte()] = new_value_address;
+        }
+
     }
 }
 
