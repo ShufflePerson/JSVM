@@ -12,7 +12,7 @@ function convertUInt32ToKey(uint32: number) {
 }
 
 const MAX_CYCLES_TIMEOUT: number = 10000;
-const SECRET_IV_KEY = "4ffe474a5c85c878eb7d51b1db8c2f27"; //DO NOT TOUCH. This line has been patched by randomizer.js
+const SECRET_IV_KEY = "3bc33a2395d07e64a7fd991e35c926fb"; //DO NOT TOUCH. This line has been patched by randomizer.js
 
 class CPU {
     private cursor: number;
@@ -80,6 +80,15 @@ class CPU {
                 case TInstructions.ClearParam:          this.handle_ClearParam();           break;
                 case TInstructions.PushToParam:         this.handle_PushToParam();          break;
                 case TInstructions.__LogRegisters:      this.handle___LogRegisters();       break;
+                case TInstructions.PushToParamIndStr:   this.handle_PushToParamIndStr();    break;
+                case TInstructions.PushToParamInd:      this.handle_PushToParamInd();       break;
+                case TInstructions.LoadStringInd:       this.handle_LoadStringInd();        break;
+                case TInstructions.UpdateVariableStr:   this.handle_UpdateVariableStr();    break;
+                case TInstructions.UpdateVariable:      this.handle_UpdateVariable();       break;
+                case TInstructions.DecInd:              this.handle_DecInd();               break;
+                case TInstructions.IncInd:              this.handle_IncInd();               break;
+                case TInstructions.DivInd:              this.handle_DivInd();               break;
+                case TInstructions.MulInd:              this.handle_MulInd();               break;
 
                 case 0: break;
                 default:
@@ -340,6 +349,7 @@ class CPU {
     private handle_ClearParam() {
         this.setRegister(TRegisters.param, []);
     }
+
     private handle_PushToParam() {
         const register    = this.bytecode[this.moveToNextCodeByte()];
         this.setRegister(TRegisters.param, [...this.getRegister(TRegisters.param), this.getRegister(register)])
@@ -360,6 +370,66 @@ class CPU {
             console.log("======REGISTERS======")
         }
     }
+
+    private handle_PushToParamIndStr() {
+        const variable_address    = this.bytecode[this.moveToNextCodeByte()];
+        const str = this.lookupString(this.bytecode[this.DATA_SECTION + variable_address]);
+        this.setRegister(TRegisters.param, [...this.getRegister(TRegisters.param), str])
+    }
+
+    private handle_PushToParamInd() {
+        const variable_address    = this.bytecode[this.moveToNextCodeByte()];
+        const valueAddress = this.bytecode[this.DATA_SECTION + variable_address];
+        this.setRegister(TRegisters.param, [...this.getRegister(TRegisters.param), this.bytecode[valueAddress + this.DATA_SECTION]])
+    }
+
+    private handle_LoadStringInd() {
+        const register      = this.bytecode[this.moveToNextCodeByte()];
+        const strAddress    = this.bytecode[this.bytecode[this.moveToNextCodeByte()] + this.DATA_SECTION];
+        this.addToDebugStack(`LoadStringInd, ${register}, ${strAddress} ( "${this.lookupString(strAddress)}" )`);
+        this.registers[register] = this.lookupString(strAddress);
+    }
+
+    private handle_UpdateVariableStr() {
+        const virtualTableAddress      = this.bytecode[this.moveToNextCodeByte()] + this.DATA_SECTION;
+        const newValueAddress          = this.bytecode[this.moveToNextCodeByte()] + this.DATA_SECTION;
+
+        this.bytecode[virtualTableAddress] = newValueAddress;
+    }
+
+    private handle_UpdateVariable() {
+        const virtualTableAddress      = this.bytecode[this.moveToNextCodeByte()] + this.DATA_SECTION;
+        const newValueAddress          = this.bytecode[this.moveToNextCodeByte()];
+        this.bytecode[virtualTableAddress] = newValueAddress;
+    }
+
+    private handle_DecInd() {
+        const virtualTableAddress     = this.bytecode[this.moveToNextCodeByte()] + this.DATA_SECTION;
+        const valueAddress            = this.bytecode[virtualTableAddress];
+        this.bytecode[valueAddress + this.DATA_SECTION]--;
+    }
+
+    
+    private handle_IncInd() {
+        const virtualTableAddress     = this.bytecode[this.moveToNextCodeByte()] + this.DATA_SECTION;
+        const valueAddress            = this.bytecode[virtualTableAddress];
+        this.bytecode[valueAddress + this.DATA_SECTION]++;
+    }
+
+    private handle_MulInd() {
+        const virtualTableAddress     = this.bytecode[this.moveToNextCodeByte()] + this.DATA_SECTION;
+        const amount                  = this.bytecode[this.moveToNextCodeByte()];
+        const valueAddress            = this.bytecode[virtualTableAddress];
+        this.bytecode[valueAddress + this.DATA_SECTION] *= amount;
+    }
+
+    private handle_DivInd() {
+        const virtualTableAddress     = this.bytecode[this.moveToNextCodeByte()] + this.DATA_SECTION;
+        const amount                  = this.bytecode[this.moveToNextCodeByte()];
+        const valueAddress            = this.bytecode[virtualTableAddress];
+        this.bytecode[valueAddress + this.DATA_SECTION] /= amount;
+    }
+
 }
 
 export default CPU;
