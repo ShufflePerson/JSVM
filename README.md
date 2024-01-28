@@ -1,5 +1,7 @@
 ## Todos
-- Variables
+- Variable Support for:
+    - Add, Sub
+- Add double quotes for strings
 - CLI
 - Objects
 - Functions
@@ -142,9 +144,15 @@ Pushes to the `#param` register the ´#register` current value
 ## Debug Instructions
 All debug instructions are removed when compiling in release mode
 
+
 ### __LogRegisters
 Logs out all registers to the console
 
+
+## Internal Instructions
+These instructions are used by the Compiler, you should not use these. 
+
+### UpdateVariable, @InDirectAddress, @newValueAddress
 
 ## Registers
 
