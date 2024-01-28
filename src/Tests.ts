@@ -2,19 +2,25 @@ import CPU from "./Cpu";
 import Parser from "./Parser";
 import TRegisters from "./Types/CPU/TRegisters";
 
+const arraysMatch = (arr1: any[], arr2: any[]): boolean => JSON.stringify(arr1) === JSON.stringify(arr2);
+
 function testPassed(data: string) {
     console.log('\x1b[32m%s\x1b[0m', data);  
 }
 
-function testFailed(data: string) {
-    console.log('\x1b[31m%s\x1b[0m', data);  
+function testFailed(...args: any[]) {
+    console.log('\x1b[31m%s\x1b[0m', ...args);  
 }
 
-function checkRegister(cpu: CPU, cpuName: string, registerName: string, register: TRegisters, expectedValue: string | number) {
-    if (cpu.getRegister(register) == expectedValue) {
+function checkRegister(cpu: CPU, cpuName: string, registerName: string, register: TRegisters, expectedValue: string | number | (string | number)[]) {
+    let pass = false;
+    if (typeof(expectedValue) == "object") {
+        pass = arraysMatch(cpu.getRegister(register), expectedValue)
+    }
+    if (pass || cpu.getRegister(register) === expectedValue) {
         testPassed(`[${cpuName}] [${registerName}] [✓]`)
     } else {
-        testFailed(`[${cpuName}] [${registerName}] [X] Expected: "${expectedValue}" but got "${cpu.getRegister(register)}"`)
+        testFailed(`[${cpuName}] [${registerName}] [X] Expected: "${expectedValue}" but got "`, cpu.getRegister(register), "\"")
         cpu.crash("Test Failed")
     }
 }
@@ -61,11 +67,8 @@ checkRegister(mathCPU, "mathCPU", "num3", TRegisters.num3, 15);
 checkRegister(mathCPU, "mathCPU", "num4", TRegisters.num4, 5);
 
 
-/*
-checkRegister(variablesCPU, "variablesCPU", "num1", TRegisters.num1, 1337);
 checkRegister(variablesCPU, "variablesCPU", "str1", TRegisters.str1, "console.debug");
-checkRegister(variablesCPU, "variablesCPU", "str3", TRegisters.str2, "Hello World. I am a very long variable with a lot of text haha hello");
-*/
+checkRegister(variablesCPU, "variablesCPU", "param", TRegisters.param, ['Here is my favorite number: ', 76]);
 
 
 checkRegister(simpleJumpCPU, "simpleJumpCPU", "str1", TRegisters.str1, "console.debug");
