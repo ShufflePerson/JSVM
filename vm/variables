@@ -1,0 +1,29 @@
+$TestNumber, int, 1338
+$LogFunction, string, console.debug
+$TestStr, string, Here is my favorite number: 
+
+
+LoadString, #str1, $LogFunction
+
+
+
+Dec, $TestNumber
+PushToParam, $TestNumber
+CallInternal, #str1
+
+Mul, $TestNumber, 5
+Div, $TestNumber, 10
+
+PushToParam, $TestStr
+PushToParam, $TestNumber
+
+CallInternal, #str1
+
+ClearParam
+
+$TestNumber, int, 75
+Inc, $TestNumber
+PushToParam, $TestStr
+PushToParam, $TestNumber 
+
+CallInternal, #str1
